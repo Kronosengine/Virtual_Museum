@@ -3,51 +3,69 @@ using System.IO;
 using System.Threading.Tasks;
 using GLTFast;
 using UnityEngine;
+using UnityEngine.Networking;
+using UnityEngine.Rendering;
 
-// Читает JSON комнаты из StreamingAssets/Rooms и собирает её из объектов.
-// Если у объекта указан "model" (.glb), модель подгружается в рантайме через glTFast.
-// Если модель не загрузилась, вместо неё ставится временная фигура (shape).
+// Читает JSON комнаты из StreamingAssets/Rooms и собирает её:
+// модель комнаты (.glb), свет, объекты (модели .glb, картины, заглушки-фигуры).
 public class RoomLoader : MonoBehaviour
 {
     [Header("Настройки")]
     public string startRoomId = "hall";
     public Transform player;                 // перетащить сюда Player
 
-    private Transform roomRoot;              // родитель всех объектов текущей комнаты
-    private RoomData currentRoom;
-    private readonly List<GltfImport> loadedModels = new List<GltfImport>();
+    public string CurrentRoomId { get; private set; }
 
-    void Start()
+    private Transform roomRoot;              // родитель всех объектов текущей комнаты
+    private readonly List<GltfImport> loadedModels = new List<GltfImport>();
+    private readonly List<UnityEngine.Object> tempAssets = new List<UnityEngine.Object>(); // текстуры картин
+    private AmbientMode defaultAmbientMode;
+    private Color defaultAmbientLight;
+
+    void Awake()
     {
-        LoadRoom(startRoomId);
+        // Запоминаем фон сцены, чтобы возвращать его в комнатах без своего ambientColor
+        defaultAmbientMode = RenderSettings.ambientMode;
+        defaultAmbientLight = RenderSettings.ambientLight;
     }
 
-    public async void LoadRoom(string roomId)
+    async void Start()
+    {
+        await LoadRoom(startRoomId);
+    }
+
+    // Возвращает true, если комната загружена
+    public async Task<bool> LoadRoom(string roomId)
     {
         RoomData data = ReadRoomFile(roomId);
-        if (data == null) return;
+        if (data == null) return false;      // старая комната остаётся на месте
 
         ClearRoom();
-        currentRoom = data;
+        CurrentRoomId = roomId;
 
-        roomRoot = new GameObject("Room_" + data.id).transform;
+        roomRoot = new GameObject("Room_" + roomId).transform;
         Transform root = roomRoot;           // запоминаем: к моменту окончания загрузки комната может смениться
 
         // Пока грузится комната, игрока замораживаем, иначе он провалится в пустоту
         SetPlayerControl(false);
-        await BuildEnvironment(data, root);
-        if (root == null) return;            // за время загрузки комнату уже сменили
 
+        ApplyAmbient(data);
+        await BuildEnvironment(data, root);
+        if (root == null) return false;      // за время загрузки комнату уже сменили
+
+        BuildLights(data, root);
         MovePlayerToSpawn(data);
-        SetPlayerControl(true);
 
         // Все объекты грузятся параллельно
         List<Task> tasks = new List<Task>();
         foreach (ObjectData obj in data.objects)
             tasks.Add(SpawnObject(obj, root));
         await Task.WhenAll(tasks);
+        if (root == null) return false;
 
-        Debug.Log("Комната готова: " + data.title + " (" + data.objects.Length + " объектов)");
+        SetPlayerControl(true);
+        Debug.Log("Комната готова: " + data.title + " (" + data.objects.Length + " объектов, " + data.lights.Length + " ламп)");
+        return true;
     }
 
     // ---------- чтение файла ----------
@@ -75,38 +93,62 @@ public class RoomLoader : MonoBehaviour
         }
     }
 
-    // ---------- построение ----------
+    // ---------- очистка ----------
 
     void ClearRoom()
     {
         if (roomRoot != null) Destroy(roomRoot.gameObject);
 
-        // Освобождаем память, занятую загруженными моделями
+        // Освобождаем память, занятую загруженными моделями и картинами
         foreach (GltfImport gltf in loadedModels) gltf.Dispose();
         loadedModels.Clear();
+
+        foreach (UnityEngine.Object a in tempAssets)
+            if (a != null) Destroy(a);
+        tempAssets.Clear();
     }
 
-    // Пол и четыре стены по размерам из JSON
-    void BuildShell(RoomData d, Transform root)
-    {
-        float w = d.size[0], l = d.size[1], h = d.wallHeight, t = 0.3f;
-        Color floorC = ParseColor(d.floorColor), wallC = ParseColor(d.wallColor);
+    // ---------- окружение и свет ----------
 
-        MakeBox(root, "Floor", new Vector3(0, -t / 2f, 0), new Vector3(w, t, l), floorC);
-        MakeBox(root, "Wall_N", new Vector3(0, h / 2f, l / 2f), new Vector3(w, h, t), wallC);
-        MakeBox(root, "Wall_S", new Vector3(0, h / 2f, -l / 2f), new Vector3(w, h, t), wallC);
-        MakeBox(root, "Wall_E", new Vector3(w / 2f, h / 2f, 0), new Vector3(t, h, l), wallC);
-        MakeBox(root, "Wall_W", new Vector3(-w / 2f, h / 2f, 0), new Vector3(t, h, l), wallC);
+    void ApplyAmbient(RoomData d)
+    {
+        if (!string.IsNullOrEmpty(d.ambientColor))
+        {
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = ParseColor(d.ambientColor);
+        }
+        else
+        {
+            RenderSettings.ambientMode = defaultAmbientMode;
+            RenderSettings.ambientLight = defaultAmbientLight;
+        }
     }
 
-    void MakeBox(Transform root, string name, Vector3 pos, Vector3 scale, Color color)
+    void BuildLights(RoomData d, Transform root)
     {
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = name;
-        go.transform.SetParent(root, false);
-        go.transform.localPosition = pos;
-        go.transform.localScale = scale;
-        go.GetComponent<Renderer>().material.color = color;
+        if (d.lights == null) return;
+
+        for (int i = 0; i < d.lights.Length; i++)
+        {
+            LightData l = d.lights[i];
+            GameObject go = new GameObject("Light_" + i + "_" + l.type);
+            go.transform.SetParent(root, false);
+            go.transform.localPosition = ToVector3(l.pos);
+            go.transform.localEulerAngles = ToVector3(l.rot);
+
+            Light light = go.AddComponent<Light>();
+            switch ((l.type ?? "").ToLower())
+            {
+                case "spot": light.type = LightType.Spot; break;
+                case "directional": light.type = LightType.Directional; break;
+                default: light.type = LightType.Point; break;
+            }
+            light.color = ParseColor(l.color);
+            light.intensity = l.intensity;
+            light.range = l.range;
+            light.spotAngle = l.spotAngle;
+            light.shadows = l.shadows ? LightShadows.Soft : LightShadows.None;
+        }
     }
 
     // Окружение комнаты: либо одна большая модель (.glb), либо простые пол и стены из JSON
@@ -125,7 +167,7 @@ public class RoomLoader : MonoBehaviour
     async Task<bool> SpawnRoomModel(RoomData d, Transform root)
     {
         GltfImport gltf = new GltfImport();
-        bool loaded = await gltf.Load(ResolveModelUri(d.roomModel));
+        bool loaded = await gltf.Load(ResolveUri(d.roomModel));
         if (!loaded)
         {
             gltf.Dispose();
@@ -162,8 +204,34 @@ public class RoomLoader : MonoBehaviour
         return true;
     }
 
+    // Пол и четыре стены по размерам из JSON (запасной вариант)
+    void BuildShell(RoomData d, Transform root)
+    {
+        float w = d.size[0], l = d.size[1], h = d.wallHeight, t = 0.3f;
+        Color floorC = ParseColor(d.floorColor), wallC = ParseColor(d.wallColor);
+
+        MakeBox(root, "Floor", new Vector3(0, -t / 2f, 0), new Vector3(w, t, l), floorC);
+        MakeBox(root, "Wall_N", new Vector3(0, h / 2f, l / 2f), new Vector3(w, h, t), wallC);
+        MakeBox(root, "Wall_S", new Vector3(0, h / 2f, -l / 2f), new Vector3(w, h, t), wallC);
+        MakeBox(root, "Wall_E", new Vector3(w / 2f, h / 2f, 0), new Vector3(t, h, l), wallC);
+        MakeBox(root, "Wall_W", new Vector3(-w / 2f, h / 2f, 0), new Vector3(t, h, l), wallC);
+    }
+
+    void MakeBox(Transform root, string name, Vector3 pos, Vector3 scale, Color color)
+    {
+        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = name;
+        go.transform.SetParent(root, false);
+        go.transform.localPosition = pos;
+        go.transform.localScale = scale;
+        go.GetComponent<Renderer>().material.color = color;
+    }
+
+    // ---------- объекты ----------
+
     async Task SpawnObject(ObjectData o, Transform root)
     {
+        // 1. Если указана модель, пробуем загрузить её
         if (!string.IsNullOrEmpty(o.model))
         {
             bool ok = await SpawnModel(o, root);
@@ -172,17 +240,42 @@ public class RoomLoader : MonoBehaviour
         }
 
         if (root == null) return;   // комнату уже сменили
-        SpawnPrimitive(o, root);
+
+        // 2. Если указана картинка, делаем «картину» с этой текстурой
+        Texture2D tex = null;
+        if (!string.IsNullOrEmpty(o.image))
+        {
+            tex = await LoadTexture(o.image);
+            if (root == null)
+            {
+                if (tex != null) Destroy(tex);
+                return;
+            }
+            if (tex != null) tempAssets.Add(tex);
+        }
+
+        // 3. Иначе (или если ничего не загрузилось) - простая фигура
+        SpawnPrimitive(o, root, tex);
     }
 
-    // Временная фигура вместо модели
-    void SpawnPrimitive(ObjectData o, Transform root)
+    // Фигура-заглушка; если есть текстура, то с картинкой
+    void SpawnPrimitive(ObjectData o, Transform root, Texture2D tex)
     {
         GameObject go = GameObject.CreatePrimitive(ShapeToPrimitive(o.shape));
         go.name = string.IsNullOrEmpty(o.id) ? o.type : o.id;
         go.transform.SetParent(root, false);
         ApplyTransform(go.transform, o);
-        go.GetComponent<Renderer>().material.color = ParseColor(o.color);
+
+        Renderer r = go.GetComponent<Renderer>();
+        if (tex != null)
+        {
+            r.material.mainTexture = tex;
+            r.material.color = Color.white;
+        }
+        else
+        {
+            r.material.color = ParseColor(o.color);
+        }
 
         go.AddComponent<RoomObject>().data = o;
     }
@@ -190,10 +283,8 @@ public class RoomLoader : MonoBehaviour
     // Настоящая 3D-модель из .glb (с диска или по ссылке)
     async Task<bool> SpawnModel(ObjectData o, Transform root)
     {
-        string uri = ResolveModelUri(o.model);
-
         GltfImport gltf = new GltfImport();
-        bool loaded = await gltf.Load(uri);
+        bool loaded = await gltf.Load(ResolveUri(o.model));
         if (!loaded)
         {
             gltf.Dispose();
@@ -224,7 +315,7 @@ public class RoomLoader : MonoBehaviour
         return true;
     }
 
-    // Коробка-коллайдер по размерам модели, чтобы сквозь неё нельзя было пройти
+    // Коробка-коллайдер по размерам модели
     void AddColliderFromBounds(GameObject go)
     {
         Renderer[] renderers = go.GetComponentsInChildren<Renderer>();
@@ -238,14 +329,32 @@ public class RoomLoader : MonoBehaviour
         col.size = b.size;
     }
 
+    // Загрузка картинки из StreamingAssets (или по ссылке)
+    async Task<Texture2D> LoadTexture(string path)
+    {
+        using (UnityWebRequest req = UnityWebRequestTexture.GetTexture(ResolveUri(path)))
+        {
+            UnityWebRequestAsyncOperation op = req.SendWebRequest();
+            while (!op.isDone) await Task.Yield();
+
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning("Не удалось загрузить картинку '" + path + "': " + req.error);
+                return null;
+            }
+            return DownloadHandlerTexture.GetContent(req);
+        }
+    }
+
     // ---------- вспомогательное ----------
 
-    string ResolveModelUri(string model)
+    // Относительный путь = файл в StreamingAssets, http(s) = ссылка
+    string ResolveUri(string path)
     {
-        if (model.StartsWith("http://") || model.StartsWith("https://")) return model;
+        if (path.StartsWith("http://") || path.StartsWith("https://")) return path;
 
-        string path = Path.Combine(Application.streamingAssetsPath, model);
-        return new System.Uri(path).AbsoluteUri;   // file:///...
+        string full = Path.Combine(Application.streamingAssetsPath, path);
+        return new System.Uri(full).AbsoluteUri;   // file:///...
     }
 
     void ApplyTransform(Transform t, ObjectData o)
@@ -270,6 +379,7 @@ public class RoomLoader : MonoBehaviour
         CharacterController cc = player.GetComponent<CharacterController>();
         if (cc != null) cc.enabled = false;
         player.position = ToVector3(d.spawn);
+        player.rotation = Quaternion.Euler(0f, d.spawnYaw, 0f);
         if (cc != null) cc.enabled = true;
     }
 
