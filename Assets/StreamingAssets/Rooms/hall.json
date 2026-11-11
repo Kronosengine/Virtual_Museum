@@ -5,7 +5,178 @@
   "roomModelPos": [0, 0, 0],
   "roomModelRot": [0, 0, 0],
   "roomModelScale": [1, 1, 1],
-  "spawn": [0, 1, 0],
+  "spawn": [0, 3, -26],
+  "spawnYaw": 0,
+  "lights": [
+    {
+      "type": "spot",
+      "pos": [0, 11.76, 21],
+      "rot": [90, 0, 0],
+      "color": "#FFF98A",
+      "intensity": 1.3,
+      "range": 59.12,
+      "spotAngle": 179,
+      "shadows": false
+    },
+    {
+      "type": "spot",
+      "pos": [0, 11.76, 12],
+      "rot": [90, 0, 0],
+      "color": "#FFF98A",
+      "intensity": 1.3,
+      "range": 59.12,
+      "spotAngle": 179,
+      "shadows": false
+    },
+    {
+      "type": "spot",
+      "pos": [0, 11.76, -12],
+      "rot": [90, 0, 0],
+      "color": "#FFF98A",
+      "intensity": 1.3,
+      "range": 59.12,
+      "spotAngle": 179,
+      "shadows": false
+    },
+    {
+      "type": "spot",
+      "pos": [0, 11.76, -21],
+      "rot": [90, 0, 0],
+      "color": "#FFF98A",
+      "intensity": 1.3,
+      "range": 59.12,
+      "spotAngle": 179,
+      "shadows": false
+    },
+    {
+      "type": "point",
+      "pos": [0, 13.98, 21],
+      "color": "#FFF98A",
+      "intensity": 5,
+      "range": 2.19,
+      "shadows": false
+    },
+    {
+      "type": "point",
+      "pos": [0, 13.98, 11.7],
+      "color": "#FFF98A",
+      "intensity": 5,
+      "range": 2.19,
+      "shadows": false
+    },
+    {
+      "type": "point",
+      "pos": [0, 13.98, -11.67],
+      "color": "#FFF98A",
+      "intensity": 5,
+      "range": 2.19,
+      "shadows": false
+    },
+    {
+      "type": "point",
+      "pos": [0, 13.98, -21.03],
+      "color": "#FFF98A",
+      "intensity": 5,
+      "range": 2.19,
+      "shadows": false
+    }
+  ],
   "objects": [
+    {
+      "id": "portal_corpus_a",
+      "type": "portal",
+      "shape": "cube",
+      "image": "Images/ИВИТШ.jpg",
+      "label": "ИВИТШ",
+      "pos": [-19.911, 6.5, -16.25],
+      "rot": [0, -90, 180],
+      "scale": [6.106, 4.09, 0.04],
+      "color": "#3A7BD5",
+      "target": "corpus_a"
+    },
+    {
+      "id": "portal_corpus_b",
+      "type": "portal",
+      "shape": "cube",
+      "image": "Images/ИПП.jpg",
+      "label": "ИПП",
+      "pos": [-19.911, 6.5, 0.0],
+      "rot": [0, -90, 180],
+      "scale": [6.106, 4.09, 0.04],
+      "color": "#D5553A",
+      "target": "corpus_b"
+    },
+    {
+      "id": "portal_corpus_c",
+      "type": "portal",
+      "shape": "cube",
+      "image": "Images/ИПТД.jpg",
+      "label": "ИПТД",
+      "pos": [-19.911, 6.5, 16.25],
+      "rot": [0, -90, 180],
+      "scale": [6.106, 4.09, 0.04],
+      "color": "#3AA56B",
+      "target": "corpus_c"
+    },
+    {
+      "id": "portal_corpus_d",
+      "type": "portal",
+      "shape": "cube",
+      "image": "Images/ИГНИСТ.jpg",
+      "label": "ИГНИСТ",
+      "pos": [-3.95, 6.5, 31.911],
+      "rot": [0, 0, 180],
+      "scale": [6.106, 4.09, 0.04],
+      "color": "#B5469B",
+      "target": "corpus_d"
+    },
+    {
+      "id": "portal_corpus_e",
+      "type": "portal",
+      "shape": "cube",
+      "image": "Images/ИФМЕН.jpg",
+      "label": "ИФМЕН",
+      "pos": [3.95, 6.5, 31.911],
+      "rot": [0, 0, 180],
+      "scale": [6.106, 4.09, 0.04],
+      "color": "#E0A526",
+      "target": "corpus_e"
+    },
+    {
+      "id": "portal_corpus_f",
+      "type": "portal",
+      "shape": "cube",
+      "image": "Images/Главный корпус.jpg",
+      "label": "Главный корпус",
+      "pos": [19.911, 6.5, 16.25],
+      "rot": [0, 90, 180],
+      "scale": [6.106, 4.09, 0.04],
+      "color": "#2FA7A7",
+      "target": "corpus_f"
+    },
+    {
+      "id": "portal_corpus_g",
+      "type": "portal",
+      "shape": "cube",
+      "image": "Images/ИКИ.jpg",
+      "label": "ИКИ",
+      "pos": [19.911, 6.5, 0.0],
+      "rot": [0, 90, 180],
+      "scale": [6.106, 4.09, 0.04],
+      "color": "#7A5CD6",
+      "target": "corpus_g"
+    },
+    {
+      "id": "portal_corpus_h",
+      "type": "portal",
+      "shape": "cube",
+      "image": "Images/ЮИН.jpg",
+      "label": "ЮИН",
+      "pos": [19.911, 6.5, -16.25],
+      "rot": [0, 90, 180],
+      "scale": [6.106, 4.09, 0.04],
+      "color": "#8C8C8C",
+      "target": "corpus_h"
+    }
   ]
 }

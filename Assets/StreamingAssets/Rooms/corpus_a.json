@@ -1,0 +1,73 @@
+{
+  "id": "corpus_a",
+  "title": "Корпус А",
+  "roomModel": "Models/room_corpus_a.glb",
+  "roomModelPos": [0, 0, 0],
+  "roomModelRot": [0, 0, 0],
+  "roomModelScale": [1, 1, 1],
+  "spawn": [0, 1, -2.5],
+  "spawnYaw": 0,
+  "ambientColor": "#4A4A55",
+  "lights": [
+    {
+      "type": "point",
+      "pos": [0, 4.2, 0],
+      "color": "#FFE9C4",
+      "intensity": 1.2,
+      "range": 9
+    },
+    {
+      "type": "spot",
+      "pos": [0, 4.5, 2.5],
+      "rot": [90, 0, 0],
+      "color": "#FFFFFF",
+      "intensity": 3,
+      "range": 6,
+      "spotAngle": 40
+    }
+  ],
+  "objects": [
+    {
+      "id": "pedestal",
+      "type": "furniture",
+      "shape": "cylinder",
+      "pos": [0, 0.5, 2.5],
+      "scale": [0.8, 0.5, 0.8],
+      "color": "#CCCCCC"
+    },
+    {
+      "id": "award_hackathon",
+      "type": "interactive",
+      "shape": "capsule",
+      "pos": [0, 1.35, 2.5],
+      "scale": [0.3, 0.3, 0.3],
+      "color": "#D4AF37",
+      "label": "Победитель хакатона 2025",
+      "info": "1 место на хакатоне 2025 года. Команда из пяти студентов за 48 часов разработала мобильное приложение для навигации по кампусу."
+    },
+    {
+      "id": "diploma_1",
+      "type": "interactive",
+      "shape": "cube",
+      "image": "Images/diploma_1.jpg",
+      "pos": [-2.4, 1.7, 0],
+      "rot": [0, 90, 0],
+      "scale": [1.0, 0.7, 0.05],
+      "color": "#FFFFFF",
+      "label": "Диплом лучшей студенческой работы",
+      "info": "Диплом за лучшую студенческую работу по итогам всероссийского конкурса."
+    },
+    {
+      "id": "portal_back_to_hall",
+      "type": "portal",
+      "shape": "cube",
+      "image": "Images/back_to_hall.jpg",
+      "pos": [0, 1.6, -3.45],
+      "rot": [0, 180, 0],
+      "scale": [1.2, 1.2, 0.08],
+      "color": "#3A7BD5",
+      "label": "Назад в холл",
+      "target": "hall"
+    }
+  ]
+}
